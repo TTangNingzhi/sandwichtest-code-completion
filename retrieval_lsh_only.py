@@ -9,9 +9,9 @@ from datasketch import MinHash, MinHashLSH
 
 
 def extract_code_segments(py_file: str) -> List[Dict]:
-    with open(py_file, "r", encoding="utf-8") as f:
-        source = f.read()
     try:
+        with open(py_file, "r", encoding="utf-8") as f:
+            source = f.read()
         tree = ast.parse(source)
     except Exception:
         return []
