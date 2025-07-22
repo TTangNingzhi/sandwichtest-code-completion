@@ -1,0 +1,4 @@
+.idea/**/*
+data/*/**
+predictions/*.jsonl
+**/.DS_Store
