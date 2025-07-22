@@ -1,4 +1,6 @@
 .idea/**/*
-data/*/**
+**/data/*/**
+**/data/*.jsonl
+**/data/*.zip
 predictions/*.jsonl
 **/.DS_Store
