@@ -1,5 +1,7 @@
 # Context Collection Competition Starter Kit
 
+**Please refer to [Environment.md](Environment.md) for specific setup details.**
+
 Welcome to the starter kit for the [Context Collection Competition](https://jb.gg/co4). 
 It will guide you from the moment of downloading data to running a baseline solution and making your first submission.
 Please feel free to fork the starter kit to use it as the starting point for your solutions.
