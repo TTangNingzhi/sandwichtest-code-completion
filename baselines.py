@@ -4,6 +4,10 @@ import random
 import argparse
 
 from rank_bm25 import BM25Okapi
+from dotenv import load_dotenv
+
+load_dotenv()
+DATA_DIR = os.getenv("DATA_DIR")
 
 argparser = argparse.ArgumentParser()
 # Parameters for context collection strategy
@@ -167,7 +171,7 @@ def trim_suffix(suffix: str):
 
 
 # Path to the file with completion points
-completion_points_file = os.path.join("../data", f"{language}-{stage}.jsonl")
+completion_points_file = os.path.join(DATA_DIR, f"{language}-{stage}.jsonl")
 
 # Path to the file to store predictions
 prediction_file_name = f"{language}-{stage}-{strategy}"
@@ -184,7 +188,7 @@ with jsonlines.open(completion_points_file, "r") as reader:
             repo_path = datapoint["repo"].replace("/", "__")
             repo_revision = datapoint["revision"]
             root_directory = os.path.join(
-                "../data",
+                DATA_DIR,
                 f"repositories-{language}-{stage}",
                 f"{repo_path}-{repo_revision}",
             )
@@ -198,7 +202,8 @@ with jsonlines.open(completion_points_file, "r") as reader:
                 )
             elif strategy == "recent":
                 recent_filenames = datapoint["modified"]
-                file_name = find_random_recent_file(root_directory, recent_filenames)
+                file_name = find_random_recent_file(
+                    root_directory, recent_filenames)
                 # If no recent files match our filtering criteria, select a random file instead
                 if file_name is None:
                     file_name = find_random_file(root_directory)
@@ -207,7 +212,7 @@ with jsonlines.open(completion_points_file, "r") as reader:
 
             # Compose the context from the selected file
             file_content = open(file_name, "r", encoding="utf-8").read()
-            clean_file_name = file_name[len(root_directory) + 1 :]
+            clean_file_name = file_name[len(root_directory) + 1:]
             context = FILE_COMPOSE_FORMAT.format(
                 file_sep=FILE_SEP_SYMBOL,
                 file_name=clean_file_name,
