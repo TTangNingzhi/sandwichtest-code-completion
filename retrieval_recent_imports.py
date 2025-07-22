@@ -126,6 +126,49 @@ def match_import_to_pyfiles(import_name: str, py_files):
     return matches
 
 
+def trim_file_content(content: str, head_lines: int = 20) -> str:
+    """
+    Keep the first `head_lines` lines, and all class/function definition lines (parsed by ast), with ... in between omitted sections.
+    """
+    import ast
+
+    lines = content.splitlines()
+    n = len(lines)
+    # 1. First head_lines lines
+    head = lines[:head_lines]
+
+    # 2. Find all class/function definition lines using ast (including nested)
+    def get_def_lines(tree):
+        def_lines = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                # lineno is 1-based
+                if node.lineno > head_lines:
+                    def_lines.add(node.lineno - 1)
+        return sorted(def_lines)
+
+    try:
+        tree = ast.parse(content)
+        def_line_indices = get_def_lines(tree)
+    except Exception:
+        def_line_indices = []
+
+    # 3. Compose output
+    output = []
+    output.extend(head)
+    last_idx = head_lines - 1
+    for idx in def_line_indices:
+        # Insert ... if there is omitted content
+        if idx > last_idx + 1:
+            output.append("...")
+        output.append(lines[idx])
+        last_idx = idx
+    # If there is omitted content after the last def/class, add ...
+    if def_line_indices and last_idx < n - 1:
+        output.append("...")
+    return "\n".join(output)
+
+
 completion_points_file = os.path.join("../data", f"{language}-{stage}.jsonl")
 prediction_file_name = f"{language}-{stage}-{strategy}"
 if args.trim_prefix:
@@ -167,13 +210,6 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
         context_files = []
         used_files = set()
 
-        # Add recent file
-        clean_file_name = file_name[len(root_directory) + 1:]
-        with open(file_name, "r", encoding="utf-8") as f:
-            file_content = f.read()
-        context_files.append((clean_file_name, file_content))
-        used_files.add(os.path.abspath(file_name))
-
         # Parse imports from prefix
         prefix = datapoint["prefix"]
         if args.trim_prefix:
@@ -183,9 +219,13 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
 
         # Add imported files if present in repo
         imported_files_included = []
+        import_files_added = 0
+        max_import_files = 5
         for import_name in import_names:
             matches = match_import_to_pyfiles(import_name, py_files)
-            for rel_import_file in matches:
+            # Only add if exactly one match (unique mapping)
+            if len(matches) == 1 and import_files_added < max_import_files:
+                rel_import_file = matches[0]
                 abs_import_file = os.path.abspath(
                     os.path.join(root_directory, rel_import_file)
                 )
@@ -196,15 +236,29 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
                         encoding="utf-8",
                     ) as f:
                         import_content = f.read()
+                    # strategy=recent-imports-trim: trim import file content
+                    if strategy == "recent-imports-trim":
+                        import_content = trim_file_content(
+                            import_content, head_lines=20
+                        )
                     context_files.append((rel_import_file, import_content))
                     used_files.add(abs_import_file)
                     imported_files_included.append(rel_import_file)
+                    import_files_added += 1
+
+        # Add recent file after import files
+        clean_file_name = file_name[len(root_directory) + 1:]
+        with open(file_name, "r", encoding="utf-8") as f:
+            file_content = f.read()
+        context_files.append((clean_file_name, file_content))
+        used_files.add(os.path.abspath(file_name))
+
         tqdm.write(
             f"Imported files included in context: {imported_files_included}")
 
         # Compose context
         context = ""
-        for fname, fcontent in context_files:
+        for i, (fname, fcontent) in enumerate(context_files):
             context += FILE_COMPOSE_FORMAT.format(
                 file_sep=FILE_SEP_SYMBOL,
                 file_name=fname,
