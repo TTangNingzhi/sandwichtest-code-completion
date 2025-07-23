@@ -44,7 +44,6 @@ def add_import_file_to_context(
 ):
     """
     Add an imported file to context_files.
-    If the file has more than 800 lines, only the first 800 lines are added.
     """
     abs_import_file = os.path.abspath(
         os.path.join(root_directory, rel_import_file))
@@ -55,11 +54,11 @@ def add_import_file_to_context(
             encoding="utf-8",
         ) as f:
             import_content_lines = f.readlines()
-        if len(import_content_lines) > 800:
-            import_content = "".join(import_content_lines[:800])
+        if len(import_content_lines) > 500:
             tqdm.write(
-                f"File {rel_import_file} exceeds 800 lines, truncated to 800 lines."
+                f"Discard file {rel_import_file} exceeds 500 lines."
             )
+            return False
         else:
             import_content = "".join(import_content_lines)
         # Add file name and "Imported file" string
