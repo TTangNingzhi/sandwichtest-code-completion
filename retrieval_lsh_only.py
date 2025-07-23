@@ -6,6 +6,10 @@ import numpy as np
 from typing import List, Dict
 
 from datasketch import MinHash, MinHashLSH
+from dotenv import load_dotenv
+
+load_dotenv()
+DATA_DIR = os.getenv("DATA_DIR")
 
 
 def extract_code_segments(py_file: str) -> List[Dict]:
@@ -27,7 +31,7 @@ def extract_code_segments(py_file: str) -> List[Dict]:
                         end = max(end, child.end_lineno)
                     elif hasattr(child, "lineno"):
                         end = max(end, child.lineno)
-            code_lines = source.splitlines()[start - 1 : end]
+            code_lines = source.splitlines()[start - 1: end]
             code = "\n".join(code_lines)
             segments.append(
                 {
@@ -56,7 +60,7 @@ def collect_all_segments(root_dir: str, extension: str = ".py") -> List[Dict]:
 def get_shingles(text: str, k: int = 5) -> set:
     tokens = text.split()
     return (
-        set([" ".join(tokens[i : i + k]) for i in range(len(tokens) - k + 1)])
+        set([" ".join(tokens[i: i + k]) for i in range(len(tokens) - k + 1)])
         if len(tokens) >= k
         else set([" ".join(tokens)])
     )
@@ -114,13 +118,15 @@ if __name__ == "__main__":
 
     stage = args.stage
     language = args.lang
-    completion_points_file = os.path.join("../data", f"{language}-{stage}.jsonl")
+    completion_points_file = os.path.join(
+        DATA_DIR, f"{language}-{stage}.jsonl")
     prediction_file_name = f"{language}-{stage}-{args.strategy}"
     if args.trim_prefix:
         prediction_file_name += "-short-prefix"
     if args.trim_suffix:
         prediction_file_name += "-short-suffix"
-    predictions_file = os.path.join("predictions", f"{prediction_file_name}.jsonl")
+    predictions_file = os.path.join(
+        "predictions", f"{prediction_file_name}.jsonl")
 
     FILE_SEP_SYMBOL = "<|file_sep|>"
     FILE_COMPOSE_FORMAT = "{file_sep}{file_name}\n{file_content}"
@@ -139,7 +145,7 @@ if __name__ == "__main__":
             repo_path = datapoint["repo"].replace("/", "__")
             repo_revision = datapoint["revision"]
             root_directory = os.path.join(
-                "../data",
+                DATA_DIR,
                 f"repositories-{language}-{stage}",
                 f"{repo_path}-{repo_revision}",
             )
@@ -154,12 +160,14 @@ if __name__ == "__main__":
                     submission["suffix"] = trim_suffix(datapoint["suffix"])
                 writer.write(submission)
                 continue
-            segments = collect_all_segments(root_directory, extension=extension)
+            segments = collect_all_segments(
+                root_directory, extension=extension)
             tqdm.write(
                 f"Collected {len(segments)} segments from repo: {repo_path}-{repo_revision}"
             )
             if not segments:
-                tqdm.write(f"No segments found in repo: {repo_path}-{repo_revision}")
+                tqdm.write(
+                    f"No segments found in repo: {repo_path}-{repo_revision}")
                 submission = {"context": ""}
                 if args.trim_prefix:
                     submission["prefix"] = prefix

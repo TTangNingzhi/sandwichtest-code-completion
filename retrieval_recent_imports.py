@@ -5,6 +5,10 @@ import random
 import argparse
 import ast
 from tqdm import tqdm
+from dotenv import load_dotenv
+
+load_dotenv()
+DATA_DIR = os.getenv("DATA_DIR")
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument("--stage", type=str, default="practice")
@@ -169,7 +173,7 @@ def trim_file_content(content: str, head_lines: int = 20) -> str:
     return "\n".join(output)
 
 
-completion_points_file = os.path.join("../data", f"{language}-{stage}.jsonl")
+completion_points_file = os.path.join(DATA_DIR, f"{language}-{stage}.jsonl")
 prediction_file_name = f"{language}-{stage}-{strategy}"
 if args.trim_prefix:
     prediction_file_name += "-short-prefix"
@@ -185,7 +189,7 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
         repo_path = datapoint["repo"].replace("/", "__")
         repo_revision = datapoint["revision"]
         root_directory = os.path.join(
-            "../data",
+            DATA_DIR,
             f"repositories-{language}-{stage}",
             f"{repo_path}-{repo_revision}",
         )
