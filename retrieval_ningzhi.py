@@ -1,7 +1,6 @@
 import re
 import os
 import jsonlines
-import random
 import argparse
 import ast
 import textwrap
@@ -71,64 +70,6 @@ def add_import_file_to_context(
         tqdm.write(f"Added imported file: {rel_import_file}")
         return True
     return False
-
-
-# ======================= Task 4: Recent file =======================
-# Helper function to add a recent file to context_files.
-def add_recent_file_to_context(file_name, root_directory, context_files, used_files):
-    """
-    Add a recent file to context_files.
-    If the file has more than 800 lines, only the first 800 lines are added.
-    """
-    if file_name is None:
-        return
-    clean_file_name = file_name[len(root_directory) + 1:]
-    with open(file_name, "r", encoding="utf-8") as f:
-        file_content_lines = f.readlines()
-    if len(file_content_lines) > 800:
-        file_content = "".join(file_content_lines[:800])
-        tqdm.write(
-            f"File {clean_file_name} exceeds 800 lines, truncated to 800 lines.")
-    else:
-        file_content = "".join(file_content_lines)
-    # Add file name and "Recent modified file" string
-    context_files.append(
-        (f"{clean_file_name} [Recent modified file]", file_content))
-    used_files.add(os.path.abspath(file_name))
-    tqdm.write(f"Added recent file: {clean_file_name}")
-
-
-def find_random_recent_file(
-    root_dir: str, recent_filenames: list[str], min_lines: int = 10
-) -> str:
-    code_files = []
-    for filename in recent_filenames:
-        if filename.endswith(extension):
-            file_path = os.path.join(root_dir, filename)
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    lines = f.readlines()
-                    if len(lines) >= min_lines:
-                        code_files.append(file_path)
-            except Exception:
-                pass
-    return random.choice(code_files) if code_files else None
-
-
-def find_random_file(root_dir: str, min_lines: int = 10) -> str:
-    code_files = []
-    for dirpath, _, filenames in os.walk(root_dir):
-        for filename in filenames:
-            if filename.endswith(extension):
-                file_path = os.path.join(dirpath, filename)
-                try:
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        lines = f.readlines()
-                        if len(lines) >= min_lines:
-                            code_files.append(file_path)
-                except Exception:
-                    pass
-    return random.choice(code_files) if code_files else None
 
 
 def trim_prefix(prefix: str):
@@ -476,24 +417,6 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
                     (f"Class: {class_name} in {rel_class_file}", class_def)
                 )
                 used_files.add(os.path.abspath(class_def))
-
-        tqdm.write("======= Task 4: Recent file =======")
-        # Add recent file after import files
-        recent_filenames = datapoint.get("modified", [])
-        file_name = find_random_recent_file(root_directory, recent_filenames)
-        if file_name is None:
-            file_name = find_random_file(root_directory)
-        if file_name is None:
-            submission = {"context": ""}
-            if args.trim_prefix:
-                submission["prefix"] = trim_prefix(datapoint["prefix"])
-            if args.trim_suffix and "suffix" in datapoint:
-                submission["suffix"] = trim_suffix(datapoint["suffix"])
-            writer.write(submission)
-            continue
-
-        add_recent_file_to_context(
-            file_name, root_directory, context_files, used_files)
 
         # Compose context
         context = ""
