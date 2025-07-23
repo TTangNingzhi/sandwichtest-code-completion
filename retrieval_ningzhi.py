@@ -14,7 +14,7 @@ DATA_DIR = os.getenv("DATA_DIR")
 argparser = argparse.ArgumentParser()
 argparser.add_argument("--stage", type=str, default="public")
 argparser.add_argument("--lang", type=str, default="python")
-argparser.add_argument("--strategy", type=str, default="junwen")
+argparser.add_argument("--strategy", type=str, default="ningzhi")
 argparser.add_argument("--trim-prefix", action="store_true")
 argparser.add_argument("--trim-suffix", action="store_true")
 args = argparser.parse_args()
@@ -32,6 +32,70 @@ else:
 
 FILE_SEP_SYMBOL = "<|file_sep|>"
 FILE_COMPOSE_FORMAT = "{file_sep}{file_name}\n{file_content}"
+
+
+# ======================= Task 1: Import files =======================
+# Helper function to add an imported file to context_files.
+def add_import_file_to_context(
+    rel_import_file,
+    root_directory,
+    used_files,
+    context_files,
+    imported_files_included,
+):
+    """
+    Add an imported file to context_files.
+    If the file has more than 800 lines, only the first 800 lines are added.
+    """
+    abs_import_file = os.path.abspath(
+        os.path.join(root_directory, rel_import_file))
+    if abs_import_file not in used_files:
+        with open(
+            os.path.join(root_directory, rel_import_file),
+            "r",
+            encoding="utf-8",
+        ) as f:
+            import_content_lines = f.readlines()
+        if len(import_content_lines) > 800:
+            import_content = "".join(import_content_lines[:800])
+            tqdm.write(
+                f"File {rel_import_file} exceeds 800 lines, truncated to 800 lines."
+            )
+        else:
+            import_content = "".join(import_content_lines)
+        # Add file name and "Imported file" string
+        context_files.append(
+            (f"{rel_import_file} [Imported file]", import_content))
+        used_files.add(abs_import_file)
+        imported_files_included.append(rel_import_file)
+        tqdm.write(f"Added imported file: {rel_import_file}")
+        return True
+    return False
+
+
+# ======================= Task 4: Recent file =======================
+# Helper function to add a recent file to context_files.
+def add_recent_file_to_context(file_name, root_directory, context_files, used_files):
+    """
+    Add a recent file to context_files.
+    If the file has more than 800 lines, only the first 800 lines are added.
+    """
+    if file_name is None:
+        return
+    clean_file_name = file_name[len(root_directory) + 1:]
+    with open(file_name, "r", encoding="utf-8") as f:
+        file_content_lines = f.readlines()
+    if len(file_content_lines) > 800:
+        file_content = "".join(file_content_lines[:800])
+        tqdm.write(
+            f"File {clean_file_name} exceeds 800 lines, truncated to 800 lines.")
+    else:
+        file_content = "".join(file_content_lines)
+    # Add file name and "Recent modified file" string
+    context_files.append(
+        (f"{clean_file_name} [Recent modified file]", file_content))
+    used_files.add(os.path.abspath(file_name))
+    tqdm.write(f"Added recent file: {clean_file_name}")
 
 
 def find_random_recent_file(
@@ -164,23 +228,24 @@ def extract_class_names_from_file(src: str, log_method=None):
 
 def _extract_function_source(file_path, func_name):
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             source_lines = f.readlines()
-            source = ''.join(source_lines)
+            source = "".join(source_lines)
     except Exception as e:
-        return None
+        return None, None
 
     try:
         node = ast.parse(source)
         for item in ast.walk(node):
             if isinstance(item, ast.FunctionDef) and item.name == func_name:
                 start_line = item.lineno - 1
-                end_line = getattr(item, 'end_lineno', None)
+                end_line = getattr(item, "end_lineno", None)
 
                 if end_line is None:
                     # Fallback based on indentation
-                    indent = len(source_lines[start_line]) - \
-                        len(source_lines[start_line].lstrip())
+                    indent = len(source_lines[start_line]) - len(
+                        source_lines[start_line].lstrip()
+                    )
                     for i in range(start_line + 1, len(source_lines)):
                         line = source_lines[i]
                         if line.strip() and len(line) - len(line.lstrip()) <= indent:
@@ -189,8 +254,8 @@ def _extract_function_source(file_path, func_name):
                     if end_line is None:
                         end_line = len(source_lines)
 
-                func_code = ''.join(source_lines[start_line:end_line])
-                return textwrap.dedent(func_code)
+                func_code = "".join(source_lines[start_line:end_line])
+                return textwrap.dedent(func_code), file_path
 
     except Exception as e:
         # Fallback: use regex to find the function
@@ -198,9 +263,9 @@ def _extract_function_source(file_path, func_name):
         matches = re.finditer(pattern, source, flags=re.MULTILINE)
         for match in matches:
             func_def = f"def {func_name}{match.group(0).split('def')[1]}"
-            return textwrap.dedent(func_def)
+            return textwrap.dedent(func_def), file_path
 
-    return None
+    return None, None
 
 
 def extract_function_def_from_repo(repo_path, target_func, log_method=None):
@@ -208,35 +273,37 @@ def extract_function_def_from_repo(repo_path, target_func, log_method=None):
         for file in files:
             if file.endswith(".py"):
                 full_path = os.path.join(root, file)
-                func_code = _extract_function_source(full_path, target_func)
+                func_code, found_file = _extract_function_source(
+                    full_path, target_func)
                 if func_code:
                     if log_method is not None:
                         log_method(f"\n📍 Found in: {full_path}\n")
                         log_method(func_code)
-                    return func_code
+                    return func_code, found_file
     if log_method is not None:
         log_method(f"❌ Function '{target_func}' not found in repo.")
-    return None
+    return None, None
 
 
 def _extract_class_source(file_path, class_name):
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             source_lines = f.readlines()
-            source = ''.join(source_lines)
+            source = "".join(source_lines)
     except Exception as e:
-        return None
+        return None, None
 
     try:
         node = ast.parse(source)
         for item in ast.walk(node):
             if isinstance(item, ast.ClassDef) and item.name == class_name:
                 start_line = item.lineno - 1
-                end_line = getattr(item, 'end_lineno', None)
+                end_line = getattr(item, "end_lineno", None)
 
                 if end_line is None:
-                    indent = len(source_lines[start_line]) - \
-                        len(source_lines[start_line].lstrip())
+                    indent = len(source_lines[start_line]) - len(
+                        source_lines[start_line].lstrip()
+                    )
                     for i in range(start_line + 1, len(source_lines)):
                         line = source_lines[i]
                         if line.strip() and len(line) - len(line.lstrip()) <= indent:
@@ -245,8 +312,8 @@ def _extract_class_source(file_path, class_name):
                     if end_line is None:
                         end_line = len(source_lines)
 
-                class_code = ''.join(source_lines[start_line:end_line])
-                return textwrap.dedent(class_code)
+                class_code = "".join(source_lines[start_line:end_line])
+                return textwrap.dedent(class_code), file_path
 
     except Exception as e:
         # Regex fallback
@@ -254,9 +321,9 @@ def _extract_class_source(file_path, class_name):
         matches = re.finditer(pattern, source, flags=re.MULTILINE)
         for match in matches:
             class_def = f"class {class_name}{match.group(0).split('class')[1]}"
-            return textwrap.dedent(class_def)
+            return textwrap.dedent(class_def), file_path
 
-    return None
+    return None, None
 
 
 def extract_class_def_from_repo(repo_path, class_name, log_method=None):
@@ -264,15 +331,16 @@ def extract_class_def_from_repo(repo_path, class_name, log_method=None):
         for file in files:
             if file.endswith(".py"):
                 full_path = os.path.join(root, file)
-                class_code = _extract_class_source(full_path, class_name)
+                class_code, found_file = _extract_class_source(
+                    full_path, class_name)
                 if class_code:
                     if log_method is not None:
                         log_method(f"\n📍 Found in: {full_path}\n")
                         log_method(class_code)
-                    return class_code
+                    return class_code, found_file
     if log_method is not None:
         log_method(f"❌ Class '{class_name}' not found in repo.")
-    return None
+    return None, None
 
 
 def collect_all_py_files(repo_root: str):
@@ -296,49 +364,6 @@ def match_import_to_pyfiles(import_name: str, py_files):
     return matches
 
 
-def trim_file_content(content: str, head_lines: int = 20) -> str:
-    """
-    Keep the first `head_lines` lines, and all class/function definition lines (parsed by ast), with ... in between omitted sections.
-    """
-    import ast
-
-    lines = content.splitlines()
-    n = len(lines)
-    # 1. First head_lines lines
-    head = lines[:head_lines]
-
-    # 2. Find all class/function definition lines using ast (including nested)
-    def get_def_lines(tree):
-        def_lines = set()
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                # lineno is 1-based
-                if node.lineno > head_lines:
-                    def_lines.add(node.lineno - 1)
-        return sorted(def_lines)
-
-    try:
-        tree = ast.parse(content)
-        def_line_indices = get_def_lines(tree)
-    except Exception:
-        def_line_indices = []
-
-    # 3. Compose output
-    output = []
-    output.extend(head)
-    last_idx = head_lines - 1
-    for idx in def_line_indices:
-        # Insert ... if there is omitted content
-        if idx > last_idx + 1:
-            output.append("...")
-        output.append(lines[idx])
-        last_idx = idx
-    # If there is omitted content after the last def/class, add ...
-    if def_line_indices and last_idx < n - 1:
-        output.append("...")
-    return "\n".join(output)
-
-
 completion_points_file = os.path.join(DATA_DIR, f"{language}-{stage}.jsonl")
 prediction_file_name = f"{language}-{stage}-{strategy}"
 if args.trim_prefix:
@@ -359,11 +384,101 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
             f"repositories-{language}-{stage}",
             f"{repo_path}-{repo_revision}",
         )
-        tqdm.write(f"Processing repo: {repo_path}-{repo_revision}")
+        tqdm.write("======= Task 1: Import files =======")
 
         # Collect all .py files in repo
         py_files = collect_all_py_files(root_directory)
 
+        context_files = []
+        used_files = set()
+
+        # Parse imports from prefix
+        prefix = datapoint["prefix"]
+        suffix = datapoint.get("suffix", "")
+        if args.trim_prefix:
+            prefix = trim_prefix(prefix)
+        import_names = parse_imports_from_prefix(prefix)
+        # tqdm.write(f"Found import statements: {sorted(import_names)}")
+
+        # Add imported files if present in repo using a helper function with line count check
+        imported_files_included = []
+        import_files_added = 0
+        max_import_files = 5
+
+        for import_name in import_names:
+            matches = match_import_to_pyfiles(import_name, py_files)
+            # Only add if exactly one match (unique mapping)
+            if len(matches) == 1 and import_files_added < max_import_files:
+                rel_import_file = matches[0]
+                if add_import_file_to_context(
+                    rel_import_file,
+                    root_directory,
+                    used_files,
+                    context_files,
+                    imported_files_included,
+                ):
+                    import_files_added += 1
+
+        # tqdm.write(f"Imported files included in context: {imported_files_included}")
+
+        tqdm.write("======= Task 2: Function definitions =======")
+        # Add function definitions
+        func_prefix = extract_function_names_from_file(prefix)
+        func_suffix = extract_function_names_from_file(suffix)
+        # tqdm.write(f"Found functions in prefix: {func_prefix}")
+        # tqdm.write(f"Found functions in suffix: {func_suffix}")
+        # find the definitions of the functions in the repo
+        for func_name in func_prefix:
+            func_def, func_file = extract_function_def_from_repo(
+                root_directory, func_name
+            )
+            if func_def and func_file:
+                rel_func_file = os.path.relpath(func_file, root_directory)
+                context_files.append(
+                    (f"Function: {func_name} in {rel_func_file}", func_def)
+                )
+                used_files.add(os.path.abspath(func_def))
+        for func_name in func_suffix:
+            func_def, func_file = extract_function_def_from_repo(
+                root_directory, func_name
+            )
+            if func_def and func_file:
+                rel_func_file = os.path.relpath(func_file, root_directory)
+                context_files.append(
+                    (f"Function: {func_name} in {rel_func_file}", func_def)
+                )
+                used_files.add(os.path.abspath(func_def))
+
+        tqdm.write("======= Task 3: Class definitions =======")
+        # Add class definitions
+        class_prefix = extract_class_names_from_file(prefix)
+        class_suffix = extract_class_names_from_file(suffix)
+        # tqdm.write(f"Found classes in prefix: {class_prefix}")
+        # tqdm.write(f"Found classes in suffix: {class_suffix}")
+        # find the definitions of the classes in the repo
+        for class_name in class_prefix:
+            class_def, class_file = extract_class_def_from_repo(
+                root_directory, class_name
+            )
+            if class_def and class_file:
+                rel_class_file = os.path.relpath(class_file, root_directory)
+                context_files.append(
+                    (f"Class: {class_name} in {rel_class_file}", class_def)
+                )
+                used_files.add(os.path.abspath(class_def))
+        for class_name in class_suffix:
+            class_def, class_file = extract_class_def_from_repo(
+                root_directory, class_name
+            )
+            if class_def and class_file:
+                rel_class_file = os.path.relpath(class_file, root_directory)
+                context_files.append(
+                    (f"Class: {class_name} in {rel_class_file}", class_def)
+                )
+                used_files.add(os.path.abspath(class_def))
+
+        tqdm.write("======= Task 4: Recent file =======")
+        # Add recent file after import files
         recent_filenames = datapoint.get("modified", [])
         file_name = find_random_recent_file(root_directory, recent_filenames)
         if file_name is None:
@@ -377,97 +492,8 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
             writer.write(submission)
             continue
 
-        context_files = []
-        used_files = set()
-
-        # Parse imports from prefix
-        prefix = datapoint["prefix"]
-        suffix = datapoint.get("suffix", "")
-        if args.trim_prefix:
-            prefix = trim_prefix(prefix)
-        import_names = parse_imports_from_prefix(prefix, log_method=tqdm.write)
-        tqdm.write(f"Found import statements: {sorted(import_names)}")
-
-        # Add imported files if present in repo
-        imported_files_included = []
-        import_files_added = 0
-        max_import_files = 5
-        for import_name in import_names:
-            matches = match_import_to_pyfiles(import_name, py_files)
-            # Only add if exactly one match (unique mapping)
-            if len(matches) == 1 and import_files_added < max_import_files:
-                rel_import_file = matches[0]
-                abs_import_file = os.path.abspath(
-                    os.path.join(root_directory, rel_import_file)
-                )
-                if abs_import_file not in used_files:
-                    with open(
-                        os.path.join(root_directory, rel_import_file),
-                        "r",
-                        encoding="utf-8",
-                    ) as f:
-                        import_content = f.read()
-                    # strategy=recent-imports-trim: trim import file content
-                    if strategy == "recent-imports-trim":
-                        import_content = trim_file_content(
-                            import_content, head_lines=20
-                        )
-                    context_files.append((rel_import_file, import_content))
-                    used_files.add(abs_import_file)
-                    imported_files_included.append(rel_import_file)
-                    import_files_added += 1
-
-        # Add function definitions
-        func_prefix = extract_function_names_from_file(
-            prefix, log_method=tqdm.write)
-        func_suffix = extract_function_names_from_file(
-            suffix, log_method=tqdm.write)
-        tqdm.write(f"Found functions in prefix: {func_prefix}")
-        tqdm.write(f"Found functions in suffix: {func_suffix}")
-        # find the definitions of the functions in the repo
-        for func_name in func_prefix:
-            func_def = extract_function_def_from_repo(
-                root_directory, func_name, log_method=tqdm.write)
-            if func_def:
-                context_files.append((f"Function: {func_name}", func_def))
-                used_files.add(os.path.abspath(func_def))
-        for func_name in func_suffix:
-            func_def = extract_function_def_from_repo(
-                root_directory, func_name, log_method=tqdm.write)
-            if func_def:
-                context_files.append((f"Function: {func_name}", func_def))
-                used_files.add(os.path.abspath(func_def))
-
-        # Add class definitions
-        class_prefix = extract_class_names_from_file(
-            prefix, log_method=tqdm.write)
-        class_suffix = extract_class_names_from_file(
-            suffix, log_method=tqdm.write)
-        tqdm.write(f"Found classes in prefix: {class_prefix}")
-        tqdm.write(f"Found classes in suffix: {class_suffix}")
-        # find the definitions of the classes in the repo
-        for class_name in class_prefix:
-            class_def = extract_class_def_from_repo(
-                root_directory, class_name, log_method=tqdm.write)
-            if class_def:
-                context_files.append((f"Class: {class_name}", class_def))
-                used_files.add(os.path.abspath(class_def))
-        for class_name in class_suffix:
-            class_def = extract_class_def_from_repo(
-                root_directory, class_name, log_method=tqdm.write)
-            if class_def:
-                context_files.append((f"Class: {class_name}", class_def))
-                used_files.add(os.path.abspath(class_def))
-
-        # Add recent file after import files
-        clean_file_name = file_name[len(root_directory) + 1:]
-        with open(file_name, "r", encoding="utf-8") as f:
-            file_content = f.read()
-        context_files.append((clean_file_name, file_content))
-        used_files.add(os.path.abspath(file_name))
-
-        tqdm.write(
-            f"Imported files included in context: {imported_files_included}")
+        add_recent_file_to_context(
+            file_name, root_directory, context_files, used_files)
 
         # Compose context
         context = ""

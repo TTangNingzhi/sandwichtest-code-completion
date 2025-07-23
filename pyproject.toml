@@ -16,6 +16,7 @@ faiss-cpu = "^1.11.0.post1"
 transformers = "^4.53.2"
 torch = "2.2.2"
 datasketch = "^1.6.5"
+dotenv = "^0.9.9"
 
 
 [build-system]
