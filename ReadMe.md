@@ -22,7 +22,7 @@ The data is expected to follow the **default structure** after preprocessing usi
 docker run --rm \
   -v $(pwd)/data:/data \
   -v $(pwd)/predictions:/predictions \
-  sandwich-test-context python.py \
+  ningzhitang/sandwich-test-context python.py \
     --dataset_dir /data \
     --output_path /predictions/sandwich_test_python_results.jsonl \
     --stage private \
@@ -36,7 +36,7 @@ docker run --rm \
 docker run --rm \
   -v $(pwd)/data:/data \
   -v $(pwd)/predictions:/predictions \
-  sandwich-test-context kotlin.py \
+  ningzhitang/sandwich-test-context kotlin.py \
     --dataset_dir /data \
     --output_path /predictions/sandwich_test_kotlin_results.jsonl \
     --stage private \
