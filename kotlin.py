@@ -4,7 +4,6 @@ import jsonlines
 import argparse
 import random
 from tqdm import tqdm
-from dotenv import load_dotenv
 
 # ==========================
 # Kotlin Static Analysis Script
@@ -13,17 +12,19 @@ from dotenv import load_dotenv
 # It uses regular expressions and indentation/braces heuristics, as Kotlin does not have a built-in AST module for Python.
 # All comments are in English.
 
-load_dotenv()
-DATA_DIR = os.getenv("DATA_DIR")
-
 argparser = argparse.ArgumentParser()
-argparser.add_argument("--stage", type=str, default="public")
+argparser.add_argument("--dataset_dir", type=str,
+                       required=True, help="Path to dataset root")
+argparser.add_argument("--output_path", type=str,
+                       required=True, help="Path to output JSONL file")
+argparser.add_argument("--stage", type=str, default="private")
 argparser.add_argument("--lang", type=str, default="kotlin")
-argparser.add_argument("--strategy", type=str, default="ningzhi")
+argparser.add_argument("--strategy", type=str, default="sandwich-test")
 argparser.add_argument("--trim-prefix", action="store_true")
 argparser.add_argument("--trim-suffix", action="store_true")
 args = argparser.parse_args()
 
+DATA_DIR = args.dataset_dir
 stage = args.stage
 language = args.lang
 strategy = args.strategy
@@ -283,7 +284,7 @@ if args.trim_prefix:
     prediction_file_name += "-short-prefix"
 if args.trim_suffix:
     prediction_file_name += "-short-suffix"
-predictions_file = os.path.join("predictions", f"{prediction_file_name}.jsonl")
+predictions_file = args.output_path
 
 with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
     predictions_file, "w"
@@ -302,34 +303,8 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
         # Collect all .kt files in repo
         kt_files = collect_all_kt_files(root_directory)
 
-        # New: Separate context files by type
-        readme_files = []
-        func_class_files = []
-        import_files = []
-        fallback_files = []
+        context_files = []
         used_files = set()
-
-        # 1. Try to find README in repo root (only check readme.md or readme, case-insensitive)
-        readme_files_in_root = [
-            f
-            for f in os.listdir(root_directory)
-            if os.path.isfile(os.path.join(root_directory, f))
-        ]
-        readme_file = None
-        for candidate in ["readme.md", "readme"]:
-            for f in readme_files_in_root:
-                if f.lower() == candidate:
-                    readme_file = f
-                    break
-            if readme_file:
-                break
-        if readme_file:
-            readme_path = os.path.join(root_directory, readme_file)
-            with open(readme_path, "r", encoding="utf-8") as f:
-                readme_content = f.read()
-            readme_files.append(
-                (f"{readme_file} [Repository README]", readme_content))
-            tqdm.write(f"Added README file: {readme_file}")
 
         # Parse imports from prefix
         prefix = datapoint["prefix"]
@@ -337,11 +312,12 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
         if args.trim_prefix:
             prefix = trim_prefix(prefix)
         import_names = parse_imports_from_prefix(prefix)
+        # tqdm.write(f"Found import statements: {sorted(import_names)}")
 
         # Add imported files if present in repo using a helper function with line count check
         imported_files_included = []
         import_files_added = 0
-        max_import_files = 5
+        max_import_files = 3
 
         for import_name in import_names:
             matches = match_import_to_ktfiles(import_name, kt_files)
@@ -365,7 +341,7 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
                     else:
                         import_content = "".join(import_content_lines)
                     # Add file name and "Imported file" string
-                    import_files.append(
+                    context_files.append(
                         (f"{rel_import_file} [Imported file]", import_content)
                     )
                     used_files.add(abs_import_file)
@@ -373,17 +349,22 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
                     import_files_added += 1
                     tqdm.write(f"Added imported file: {rel_import_file}")
 
+        # tqdm.write(f"Imported files included in context: {imported_files_included}")
+
         tqdm.write("======= Task 2: Function definitions =======")
         # Add function definitions
         func_prefix = extract_function_names_from_file(prefix)
         func_suffix = extract_function_names_from_file(suffix)
+        # tqdm.write(f"Found functions in prefix: {func_prefix}")
+        # tqdm.write(f"Found functions in suffix: {func_suffix}")
+        # find the definitions of the functions in the repo
         for func_name in func_prefix:
             func_def, func_file = extract_function_def_from_repo(
                 root_directory, func_name
             )
             if func_def and func_file:
                 rel_func_file = os.path.relpath(func_file, root_directory)
-                func_class_files.append(
+                context_files.append(
                     (f"Function: {func_name} in {rel_func_file}", func_def)
                 )
                 used_files.add(os.path.abspath(func_def))
@@ -393,7 +374,7 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
             )
             if func_def and func_file:
                 rel_func_file = os.path.relpath(func_file, root_directory)
-                func_class_files.append(
+                context_files.append(
                     (f"Function: {func_name} in {rel_func_file}", func_def)
                 )
                 used_files.add(os.path.abspath(func_def))
@@ -402,13 +383,16 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
         # Add class definitions
         class_prefix = extract_class_names_from_file(prefix)
         class_suffix = extract_class_names_from_file(suffix)
+        # tqdm.write(f"Found classes in prefix: {class_prefix}")
+        # tqdm.write(f"Found classes in suffix: {class_suffix}")
+        # find the definitions of the classes in the repo
         for class_name in class_prefix:
             class_def, class_file = extract_class_def_from_repo(
                 root_directory, class_name
             )
             if class_def and class_file:
                 rel_class_file = os.path.relpath(class_file, root_directory)
-                func_class_files.append(
+                context_files.append(
                     (f"Class: {class_name} in {rel_class_file}", class_def)
                 )
                 used_files.add(os.path.abspath(class_def))
@@ -418,13 +402,13 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
             )
             if class_def and class_file:
                 rel_class_file = os.path.relpath(class_file, root_directory)
-                func_class_files.append(
+                context_files.append(
                     (f"Class: {class_name} in {rel_class_file}", class_def)
                 )
                 used_files.add(os.path.abspath(class_def))
 
         # ===== Fallback: If nothing found, use recent file =====
-        if not (readme_files or func_class_files or import_files):
+        if not context_files:
             tqdm.write(
                 "No context files found, falling back to recent file strategy.")
             recent_filenames = datapoint.get("modified", [])
@@ -439,21 +423,20 @@ with jsonlines.open(completion_points_file, "r") as reader, jsonlines.open(
                     fallback_file, root_directory)
                 log_message = f"[Fallback recent file]"
                 tqdm.write(f"Fallback file used: {clean_file_name}")
-                fallback_files.append(
+                context_files.append(
                     (f"{clean_file_name} {log_message}", fallback_content)
                 )
             else:
                 tqdm.write("No suitable fallback file found.")
 
-        # Compose context in order: function/class, import, README, fallback
+        # Compose context
         context = ""
-        for files in [func_class_files, import_files, readme_files, fallback_files]:
-            for fname, fcontent in files:
-                context += FILE_COMPOSE_FORMAT.format(
-                    file_sep=FILE_SEP_SYMBOL,
-                    file_name=fname,
-                    file_content=fcontent,
-                )
+        for i, (fname, fcontent) in enumerate(context_files):
+            context += FILE_COMPOSE_FORMAT.format(
+                file_sep=FILE_SEP_SYMBOL,
+                file_name=fname,
+                file_content=fcontent,
+            )
 
         submission = {"context": context}
         if args.trim_prefix:

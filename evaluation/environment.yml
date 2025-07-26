@@ -1,8 +1,0 @@
-datalore-env-format-version: "0.2"
-datalore-package-manager: "pip"
-datalore-base-env: "default_3_11"
-dependencies:
-- pip:
-  - vllm
-  - jsonlines==4.0.0
-  - codegen-metrics==0.2.0
