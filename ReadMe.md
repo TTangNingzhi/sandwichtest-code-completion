@@ -46,9 +46,9 @@ docker run --rm \
 
 ## Team Information
 
-* **Team name**: SaNDwich&TEST
+**Team name**: SaNDwich&TEST
 
-* **Team members & emails**:
+**Team members & emails**:
   * Ningzhi Tang `<ntang@nd.edu>`
   * Junwen An `<junwenan@u.nus.edu>`
   * David Meininger `<dmeining@nd.edu>`
@@ -57,12 +57,13 @@ docker run --rm \
 
 ## Public Submission Results
 
-* **Public submission numbers on EvalAI**:
-  * **Python**: Submission #5
-    ```json
-    [{'Mellum ChrF': 0.5076098847812635, 'Codestral ChrF': 0.5727674308716586, 'Qwen-Coder ChrF': 0.5311432030409533, 'Average ChrF': 0.5371735062312918}]
-    ```
-  * **Kotlin**: Submission #3
-    ```json
-    [{'Mellum ChrF': 0.6286589737594024, 'Codestral ChrF': 0.6771627968502668, 'Qwen-Coder ChrF': 0.6060614958043855, 'Average ChrF': 0.6372944221380182}]
-    ```
+Public submission numbers on EvalAI:
+
+* **Python**: Submission #5
+  ```json
+  {'Mellum ChrF': 0.5076098847812635, 'Codestral ChrF': 0.5727674308716586, 'Qwen-Coder ChrF': 0.5311432030409533, 'Average ChrF': 0.5371735062312918}
+  ```
+* **Kotlin**: Submission #3
+  ```json
+  {'Mellum ChrF': 0.6286589737594024, 'Codestral ChrF': 0.6771627968502668, 'Qwen-Coder ChrF': 0.6060614958043855, 'Average ChrF': 0.6372944221380182}
+  ```
