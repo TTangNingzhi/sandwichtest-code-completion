@@ -10,7 +10,8 @@ docker pull ningzhitang/sandwich-test-context:latest
 
 ## Dataset Structure & Assumptions
 
-The data is expected to follow the **default structure** after preprocessing using the `prepare_data.sh` script from `ase2025-starter-kit`. By default, the container is executed from the **root directory of `ase2025-starter-kit`**, with the following folders mounted:
+The data is expected to follow the **default structure** after preprocessing using the `prepare_data.sh` script from `ase2025-starter-kit`. By default, you should run the `docker run` command from within the `ase2025-starter-kit` project directory. The following folders from your local machine will be mounted into the container:
+
 * `/data`: preprocessed dataset
 * `/predictions`: output directory for generated context files
 
