@@ -1,6 +1,6 @@
 # SaNDwich&TEST
 
-This repository contains our team's work for the JetBrains Code Completion competition.
+This repository contains our team's work for the JetBrains Code Completion [Context Collection Competition](https://lp.jetbrains.com/research/context-collection-competition/).
 
 **Team Members:**
 - Ningzhi Tang <ntang@nd.edu> (equal contribution)
@@ -11,8 +11,8 @@ This repository contains our team's work for the JetBrains Code Completion compe
 
 The `retrieval_*.py` files are our experimental scripts for code retrieval approaches.
 
-For environment setup, see **Environment.md**.
+For environment setup, see [Environment.md](Environment.md).
 
-**JBReadMe.md** provides the original background from the [JetBrains starter kit](https://github.com/JetBrains-Research/ase2025-starter-kit).
+[JBReadMe.md](JBReadMe.md) provides the original background from the [JetBrains starter kit](https://github.com/JetBrains-Research/ase2025-starter-kit).
 
 For our final solution and deployed Docker image, please refer to the [`private` branch](https://github.com/TTangNingzhi/sandwichtest-code-completion/tree/private).
