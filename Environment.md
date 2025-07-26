@@ -1,7 +1,7 @@
 ```
 conda create -n ast25-jb-completion python=3.11
 
-pip install jsonlines argparse tqdm rank-bm25 faiss-cpu transformers torch datasketch codegen-metrics vllm ipykernel
+pip install jsonlines tqdm rank-bm25 faiss-cpu transformers torch datasketch codegen-metrics vllm ipykernel
 ```
 
 Download data into any location and set up the absolute path in `.env`. After preprocessing, the data folder should look like this:
