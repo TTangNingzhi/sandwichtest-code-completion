@@ -49,8 +49,8 @@ docker run --rm \
 **Team name**: SaNDwich&TEST
 
 **Team members & emails**:
-  * Ningzhi Tang `<ntang@nd.edu>`
-  * Junwen An `<junwenan@u.nus.edu>`
+  * Ningzhi Tang `<ntang@nd.edu>` (equal contribution)
+  * Junwen An `<junwenan@u.nus.edu>` (equal contribution)
   * David Meininger `<dmeining@nd.edu>`
   * Gelei Xu `<gxu4@nd.edu>`
   * Huihui Huang `<hh.huang.2024@phdcs.smu.edu.sg>`
