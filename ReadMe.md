@@ -1,6 +1,6 @@
 # SaNDwich&TEST: Context Collection for Code Completion
 
-We participated in the [**JetBrains Research Context Collection Competition**](<(https://lp.jetbrains.com/research/context-collection-competition)>), co-located with **ASE 2025**.
+We participated in the **[JetBrains Research Context Collection Competition](https://lp.jetbrains.com/research/context-collection-competition)**, co-located with **ASE 2025**.
 Our team (SaNDwich&TEST) **advanced to the final stage in both Python and Kotlin tracks** (invited to present at the ASE 2025 Context Collection Workshop), outperforming official baselines and ranking **5th place** in both tracks' final leaderboards.
 
 ## Team Information
@@ -15,7 +15,7 @@ Our team (SaNDwich&TEST) **advanced to the final stage in both Python and Kotlin
 
 Our solution, **SaNDwich&TEST**, implements an intelligent **multi-task context collection strategy** for LLM-based code completion. The approach systematically analyzes both the code prefix and suffix around the completion point to gather the most relevant context from the repository.
 
-> **Note**: To view our other exploration code and evaluation code organization, please check the `main` branch: [https://github.com/TTangNingzhi/sandwichtest-code-completion/tree/main](https://github.com/TTangNingzhi/sandwichtest-code-completion/tree/main)
+> **Note**: To view our other exploration code and evaluation code organization, please check the [`main` branch](https://github.com/TTangNingzhi/sandwichtest-code-completion/tree/main).
 
 ### Core Strategy: Three-Task Context Collection
 
